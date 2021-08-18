@@ -1,0 +1,387 @@
+---
+title: "COMPASS: Estadística básica con R, parte I"
+author: "Karla Vasco"
+date: "02 de septiembre, 2021"
+output:
+  html_document:
+    toc: TRUE
+---
+
+#OUTLINE PARTE I
+- Revisión rápida sobre R Markdown
+- Instalación de paquetes para análisis de datos y gráficas
+- Exploración de datos (Gapminder)
+- Estadísticas descriptivas básicas y visualización de datos 
+
+
+## Una introducción rápida a R Markdown
+
+Este es un documento de R Markdown. Markdown es una sintaxis de formato simple para la creación de documentos HTML, PDF y MS Word. Para obtener más detalles sobre el uso de R Markdown, consulta <https://rmarkdown.rstudio.com/>. 
+También puedes revisar este cheatsheet <https://github.com/karla-vasco/R-workshop-stats/blob/main/cheatsheets/rmarkdown-cheatsheet-2.0.pdf>
+
+Al hacer clic en el botón ** Knit **, se generará un documento que incluye tanto el contenido como la salida de cualquier fragmento de código R incrustado dentro del documento. Puede incrustar un fragmento de código R como este:
+
+
+### Incluyendo fragmentos de código (chunks)
+Para insertar un nuevo chunk: 
+- Windows presiona las teclas Ctrl + Alt + I 
+- Mac Cmd + Option + I
+
+```{r cars, echo=FALSE}
+summary(cars)
+```
+
+### Incluyendo figuras (plots)
+También puedes insertar gráficas, por ejemplo:
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+Ten en cuenta que el parámetro `echo = FALSE` se agregó al fragmento de código para evitar la impresión del código R que generó el gráfico.
+
+
+# Instalación de paquetes
+- Verifica tus versiones de R / RStudio (escribe "version" en la consola)
+- Por el momento, instala los paquetes individuales usando `install.packages (" PACKAGENAME ")`
+- Echa un vistazo a todo el conjunto de paquetes `tidyverse` [aquí] <https://www.tidyverse.org/packages/>
+
+Instala los paquetes relevantes que usaremos, incluyendo nuestra base de datos para hoy, usando la función `install.packages ()`.
+
+Vamos a configurar `eval = FALSE` para que no se ejecute cada vez que este documento se corre en Rmarkdown.
+
+```{r tidyverse, eval=FALSE, echo=TRUE}
+
+# paquetes de importación de datos
+   install.packages("gapminder") # Conjunto de datos que usaremos hoy
+   install.packages("here") # Buscando archivos
+   install.packages("readr") # Importando archivos de datos
+   install.packages("readxl") # Importación de archivos de Excel
+
+# paquetes de manipulación de datos
+   install.packages("tidyverse") # Tidyverse
+   #install.packages("tidyr") # Tidy Data (parte de tidyverse)
+   #install.packages("dplyr") # Manipulación de datos (parte de tidyverse)
+
+# paquetes estadísticos y de visualización de datos
+   #install.packages("ggplot2") # Visualización de datos (con gramática de gráficos)
+   install.packages("psych") # Visualización de datos y estadísticas
+   install.packages("vioplot") # Visualización de datos y estadísticas
+   install.packages("GGally") # Visualización de datos y estadísticas
+  install.packages("ggpubr") # Visualización de datos 
+  install.packages("ggsci") # Paletas de colores para revistas cientificas
+```
+
+Una nota sobre `vioplot`:
+
+Si recibe este mensaje:
+
+Intenta instalarlo por separado a través de la consola. Si recibes un mensaje que dice:
+```{}
+Do you want to install from sources the package which needs compilation?
+y/n: 
+```
+
+Escribe **y**.
+
+
+### Cargando paquetes
+
+```{r loading, eval=T, echo=T, message=F}
+# en Rmarkdown, eval debe ser verdadero (eval = T) para cargar las bibliotecas a continuación
+# echo = T para mostrar el código
+# message = F para ocultar los mensajes para que no carguen los paquetes
+
+library(tidyverse) # paquete para trabajar con organización datos y visualizaciones
+
+# O... carga los paquetes individualmente:
+#library(readr)    # parte de tidyverse
+#library(tidyr)    # parte de tidyverse
+#library(dplyr)    # parte de tidyverse
+#library(ggplot2)  # parte de tidyverse
+#library(purrr)    # parte de tidyverse
+
+library(readxl)   # Para leer archivos de Excel
+library(psych)     # tiene algunas funciones estadísticas útiles
+library(here)      # Para encontrar tus archivos; establecer el directorio de trabajo
+library(gapminder) # Base de datos Gapminder: esperanza de vida, PIB per cápita, población por país
+```
+
+
+# Exploración de datos
+Lo primero es lo primero, observe la estructura de datos sin procesar. Saber cómo se ven sus datos en general le ayudará a analizarlos y organizarlos.
+
+## ¿Tienes tu propia base de datos?
+Si deseas utilizar tu base de datos propia es mejor si está guardada como texto sin formato. Debe tener una fila con todos los nombres de tus columnas/variables, luego todos sus datos. 
+
+## ¿Migrando desde Excel?
+Si estás usando Excel es más fácil guardar tu archivo en formato CSV (Archivo> Guardar como - o presione F12 - luego en "Guardar como tipo" en el menú desplegable, cámbialo a "CSV delimitado por comas (CSV) ")
+
+# La ruta sería relativa a su punto de partida / ubicación de su archivo R
+```{r}
+here::here() ## Apunta al lugar donde abrió su sesión de RStudio.
+```
+
+#Importa tu base de datos 
+```{r}
+mis_datos <- read_csv("ruta/a/tus/datos", # selecciona un archivo de tu computador
+                      header=TRUE,      # los nombres de las columnas estan en la primera fila
+                      na=c("N/A","NA","None","")) # Dice a R como identificar valores faltantes y los reemplaza con NA (en color gris)
+```
+
+## Gapminder
+cargar y examinar la base de datos de Gapminder
+Sin embargo, esto no es típico. La mayoría de los paquetes no tienen conjuntos de datos de ejemplo.
+Tidyverse y Gapminder tienen conjuntos de datos de muestra.
+`View ()` abrirá el conjunto de datos en una nueva pestaña.
+```{r echo=T, eval=T}
+# Abre el conjunto de datos en una nueva pestaña.
+View(gapminder)
+```
+
+#ANALISIS DE DATOS UNIVARIADO (VARIABLE POR VARIABLE)
+
+## Explorar datos con R basico
+```{r echo=T, eval=T}
+# El uso de la función basica de r "str" muestra el tipo de datos y valores únicos.
+str(gapminder)
+```
+## Explorar datos con tidyverse
+Compara la función básica de R con la función de tidyverse `glimpse ()`, que muestra el tipo de datos y enumera las primeras filas.
+```{r echo=T, eval=T}
+# glimpse de `tidyverse`
+glimpse(gapminder)
+```
+
+```{r echo=T, eval=T}
+# También podemos mirar las primeras 10 filas.
+head(gapminder)
+```
+
+```{r echo=T, eval=T}
+# y observe las últimas 6 filas.
+tail(gapminder)
+```
+
+
+Si alguna vez necesitas un recordatorio de los nombres y el orden de sus columnas, usa la función `colnames ()`.
+```{r echo=T, eval=T}
+# get column names
+  colnames(gapminder)
+```
+
+
+# Estadística descriptiva super básica
+Comience por verificar si faltan datos usando la función `summary ()`. Si faltan datos (NA), los verás en la fila inferior, pero solo para la variable que faltan datos.
+```{r eval=TRUE, echo=TRUE}
+# Estadística básica por columna
+  summary(gapminder)
+```
+
+La función `describe ()` del paquete `psych` ofrece un resumen más detallado. Observa lo que sucede con las variables categóricas.
+```{r eval=TRUE, echo=TRUE}
+# Y podemos comparar esto con el paquete "psych".
+describe(gapminder)
+```
+## Analizar una sola variable
+
+###Histograma: para ver distribuciones
+Haz un histograma para observar la distribución de tus datos.
+```{r echo=TRUE, eval=TRUE}
+# histograma de la expectativa de vida
+  gapminder %>%
+    ggplot(aes(x = lifeExp)) +
+    geom_histogram()
+```
+
+Opción de intentar usar R básico
+```{r echo=TRUE, eval=TRUE}
+# histogram using base R
+   hist(gapminder$lifeExp)
+```
+
+Aquí, usamos la función `summary` nuevamente, pero esta vez para una variable, no para un conjunto de datos. Esto nos da una tabla de estadísticas básicas que incluyen mínimo, mediana, cuartiles y mínimo / máximo.
+
+```{r eval=TRUE, echo=TRUE}
+# resumen de la expectativa de vida
+  gapminder %>%
+    pull(lifeExp) %>% #selecciona una columna y la transforma en un vector
+    summary()
+```
+
+```{r}
+#o simplemente...
+summary(gapminder$lifeExp)
+```
+
+Extrae estos números por separado
+```{r eval=TRUE, echo=TRUE}
+# Utilice cualquiera de estos para recuperar un solo descriptor.
+  max(gapminder$lifeExp)
+  min(gapminder$lifeExp)
+  range(gapminder$lifeExp)
+  median(gapminder$lifeExp)
+  mode(gapminder$lifeExp)
+  mean(gapminder$lifeExp)
+  quantile(gapminder$lifeExp)
+```
+
+# Resumen estadístico
+
+Hay muchas formas de obtener estadísticas resumidas por agrupación.
+
+Por ejemplo, si quisiéramos obtener estadísticas resumidas de "lifeExp" "por continente:
+
+## Usando R básico: `tapply ()`
+```{r eval=TRUE, echo=TRUE}
+tapply(gapminder$lifeExp,
+       gapminder$continent,
+       summary) 
+```
+
+## Utilizando dplyr: `summarize()`
+```{r eval=TRUE, echo=TRUE}
+# Observe cómo usamos 'na.rm = TRUE' para eliminar los datos faltantes (si es necesario).
+gapminder %>% 
+  group_by(continent) %>% 
+  summarize(Promedio=mean(lifeExp, na.rm=T),
+            Mediana=median(lifeExp, na.rm=T))
+```
+
+
+## Utilizando psych: `describeBy()`
+```{r eval=TRUE, echo=TRUE}
+describeBy(gapminder$lifeExp,
+           gapminder$continent,
+           mat = TRUE)
+```
+
+En resumen, hay muchas formas de obtener la misma información, ¡así que juega con ellas!
+
+# Guardar tablas
+¿Qué pasa si queremos guardar la tabla como un archivo? 
+```{r eval=TRUE, echo=TRUE}
+# establecer ubicaciones para guardar
+  getwd () # obtener directorio de trabajo
+  here::here() # establecer directorio de trabajo
+   # setwd ("C:/Users/Karla/Documents/R_Workshops") # forma alternativa de configurar el directorio de trabajo
+
+# guardar la tabla como un archivo CSV (valores separados por comas)
+  describeBy(gapminder$lifeExp,
+             gapminder$continent,
+             mat = TRUE) %>%
+        write.csv(file="test.csv")
+```
+
+Alternativamente, puedes crear una nuevo objeto y escribirlo en su lugar.
+
+```{r eval=TRUE, echo=TRUE}
+# crear un nuevo objeto
+  test2 <- describeBy(gapminder$lifeExp, gapminder$continent, mat = TRUE)
+
+# guardar como CSV
+ write.csv(test2, "test2.csv")
+```
+
+
+# Graficando sus estadísticas
+
+Grafiquemos estas estadísticas descriptivas para que nuestros lectores las puedan interpretar (por ejemplo, jefe, revisor, etc.).
+
+## Creación de boxplots: para ver distribuciones / estadísticas resumidas / valores atípicos
+
+```{r eval=T, echo=T}
+
+gapminder %>%
+  ggplot(aes( y = lifeExp)) +
+  geom_boxplot() +
+  ylab("Life Expectancy (years)")
+
+gapminder %>%
+  ggplot(aes(x = continent, y = lifeExp)) +
+  geom_boxplot() +
+  xlab("Continent") +
+  ylab("Life Expectancy (years)")
+
+gapminder %>%
+  ggplot(aes(x = reorder(continent, lifeExp, FUN = median),
+             y = lifeExp)) +
+  geom_boxplot() +
+  xlab("Continent") +
+  ylab("Life Expectancy (years)")
+
+gapminder %>%
+  ggplot(aes(x = reorder(continent, lifeExp, FUN = median),
+             y = lifeExp)) +
+  geom_boxplot(notch = T) +
+  xlab("Continent") +
+  ylab("Life Expectancy (years)")
+
+gapminder %>%
+  ggplot(aes(x = reorder(continent, lifeExp, FUN = median),
+             y = lifeExp)) +
+  geom_boxplot(notch = T) +
+  geom_jitter(shape=16, position=position_jitter(0.2), size=0.5, alpha = 0.2) +
+  xlab("Continent") +
+  ylab("Life Expectancy (years)")
+```
+
+Aquí hay opciones para probarlo usando R básico
+```{r eval=T, echo=T}
+## Usando R básico
+boxplot(gapminder$lifeExp)
+# o mira boxplots entre grupos
+boxplot(gapminder$lifeExp~gapminder$continent)
+boxplot(gapminder$lifeExp~gapminder$continent,
+        xlab="Continent", ylab="Life Expectancy (Years)")
+# Puedes agregar muescas
+boxplot(gapminder$lifeExp~gapminder$continent,
+        notch=T, xlab="Continent", ylab="Life Expectancy (Years)")
+```
+
+# Encontrar valores atípicos (outliers)
+Ahora que sabemos qué es común en nuestro conjunto de datos, veamos qué es poco común o extraño.
+```{r eval=TRUE, echo=TRUE}
+# boxplot para la expectativa de vida
+  outliers_lifeExp <- boxplot.stats(gapminder$lifeExp)$out # valores atípicos.
+  outliers_lifeExp
+```
+
+Bueno ... lifeExp no tiene valores atípicos. Así que veamos una variable que sí:
+```{r eval=TRUE, echo=TRUE}
+# boxplot para la población
+  outliers_pop <- boxplot.stats(gapminder$pop)$out
+  outliers_pop
+```
+```{r}
+boxplot(gapminder$pop)
+```
+
+los encontramos! ¡Genial! Pero, ¿cómo puedo volver a mi conjunto de datos para encontrar estos valores atípicos específicamente?
+
+Creemos un subconjunto de datos que incluya solo observaciones por encima de nuestro valor atípico mínimo.
+
+```{r eval=TRUE, echo=TRUE}
+# solo subconjunto de valores atípicos mínimos
+  min(outliers_pop)
+  out.set <-filter(gapminder, pop >= '45598081')
+
+# inspeccionar
+  View(out.set)
+```
+Ahora puedo encontrar los valores atípicos y volver a mi conjunto de datos original.
+¿Cuándo querrías hacer esto?
+
+
+# Gráficos de violín: para ver la forma de distribución
+Las gráficas de violín son una forma más descriptiva de visualizar gráficas de caja, ya que superponen la distribución y las estadísticas clave (por ejemplo, media, cuartiles, etc.)
+
+```{r eval=T, echo=T}
+# violin plot de la expectativa de vida
+  gapminder %>%
+    ggplot(aes(x = reorder(continent, lifeExp, FUN = median),
+               y = lifeExp,
+               fill = continent)) +
+    geom_violin() +
+    geom_boxplot(width = 0.1, notch = T, fill = "white") +
+    xlab("Continente") +
+    ylab("Expectativa de vida (años)")
+```

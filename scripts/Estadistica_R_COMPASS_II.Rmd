@@ -1,0 +1,392 @@
+---
+title: "COMPASS: Estadística básica con R, parte II"
+author: "Karla Vasco"
+date: "02 de septiembre, 2021"
+output:
+  html_document:
+    toc: TRUE
+---
+# OUTLINE PARTE II
+- Distribucion de datos, test de normalidad y transformacion de valores (re-escalar)
+- Pruebas estadísticas paramétricas básicas (por ejemplo, t.test, ANOVA) y no paramétricas
+- Estadística inferencial: prueba de hipótesis, valor p, correlaciones, intervalos de confianza
+
+# Cargando paquetes
+```{r}
+library(tidyverse) # paquete para trabajar con organización datos y visualizaciones
+# O... carga los paquetes individualmente:
+#library(readr)    # parte de tidyverse
+#library(tidyr)    # parte de tidyverse
+#library(dplyr)    # parte de tidyverse
+#library(ggplot2)  # parte de tidyverse
+#library(purrr)    # parte de tidyverse
+
+library(readxl)    # para leer archivos de Excel
+library(psych)     # tiene algunas funciones estadísticas útiles
+library(here)      # Para encontrar tus archivos; establecer el directorio de trabajo
+library(gapminder) # Base de datos Gapminder: esperanza de vida, PIB per cápita, población por país
+
+```
+
+#ANALISIS DE DATOS BIVARIADOS (dos variables)
+
+## CATEGORICA con NUMERICA
+
+#### Comparar el promedio de vida de dos paises
+```{r}
+gapminder %>% 
+  select(country, lifeExp) %>% 
+  filter(country == "South Africa" |
+           country == "Ireland") %>% 
+  group_by(country) %>% 
+  summarise(Promedio_de_vida = mean(lifeExp))
+```
+
+Es esta diferencia estadisticamente significativa?
+
+```{r}
+#Creamos un data frame con los valores de estos dos paises
+df1 <- gapminder %>% 
+  select(country, lifeExp) %>% 
+  filter(country == "South Africa" |
+           country == "Ireland")
+
+#Test parametrico: asumiendo que los datos estan distribuidos normalmente
+t.test(data = df1, lifeExp ~ country) # calculamos el t-test
+
+#Test no parametrico: cuando los datos no siguen una distribucion normal
+wilcox.test(data = df1, lifeExp ~ country) # calculamos el t-test
+
+```
+#Test de normalidad
+Están tus datos normalmente distribuidos?
+Chequeando normalidad, goodness of fit, tests de independencia/diferencia
+```{r}
+gapminder %>%
+  ggplot(aes(x = lifeExp)) + # Hacer un plot de la variable expectativa de vida
+  geom_density() + # Graficar lineas de densidad
+  stat_function(fun = dnorm, # Superimponer una curva de densidad de la funcion de distribucion normal calculada para expectativa de vida
+                args = list(mean = mean(gapminder$lifeExp),
+                            sd = sd(gapminder$lifeExp)),
+                color = "red")
+```
+
+## Test de Shapiro-Wilk
+Si p es significativo --> la variable no tiene una distribución normal
+```{r}
+shapiro.test(gapminder$lifeExp) # Si la esperanza de vida de gapminder se distribuye normalmente el valor de p > .05 indicaría que no podemos rechazar la hipotesis nula y los datos se distribuyen normalmente.
+```
+
+## Test Kolmogorov-Smirnov
+Si p es significativo -> no normal
+Puedes obtener un error de R para ks.test que dice "ties should not be present for the Kolmogorov-Smirnov test"; no le gustan múltiples aciertos del mismo número
+KS vs Shapiro: https://stats.stackexchange.com/questions/362/what-is-the-difference-between-the-shapiro-wilk-test-of-normality-and-the-kolmog
+```{r}
+ks.test(gapminder$lifeExp, # Qué es lo que estamos testeando (variable expectativa de vida)
+        "pnorm",         # el test de Kolmogorov-Smirnov necesita tres argumentos adicionales: la distribución que estamos intentado testear (pnorm), el promedio (mean), y la desviación estandar (sd)
+        mean=mean(gapminder$lifeExp),  
+        sd=sd(gapminder$lifeExp))      
+```
+
+# Residuales
+Es posible que quieras o no ver los residuales en función de tu experiencia / campo / etc. Aquí, podemos graficarlos en el gráfico QQ (cuantil-cuantil).
+
+```{r eval=TRUE, echo=TRUE}
+# graficar residuales
+  qqnorm(gapminder$lifeExp)
+  qqline(gapminder$lifeExp)
+```
+
+### Graficando nuestros datos y realizando test estadistico a la vez
+```{r}
+library(ggsci) # paletas de colores de revistas cientificas 
+library(ggpubr) # ayuda a realizar plots listos para publicacion
+
+#Primero vamos a crear una lista de las comparaciones que queremos realizar, por ejemplo entre paises. Aqui especificamos pares de comparaciones
+mis_comparaciones <- list(c("Ireland", "South Africa"))
+
+##################### Box-plot #############################
+plot_df1 <- df1 %>% 
+  mutate(country = fct_relevel(country, "South Africa","Ireland")) %>% # Por defecto el orden de las variables es alfabetico. Si quieres cambiarlo manualmnete usa esta funcion
+  ggplot(aes(x = country, y = lifeExp, fill = country)) + 
+  geom_boxplot(outlier.shape = NA) + # hacer boxplot pero no graficar los outliers porque ya vamos a añadir puntos y se van a sobreponer
+  geom_jitter(color="black", size=0.4, alpha=0.5) + # agregando puntos de datos
+  labs(y="Expectativa de vida", x="Pais") + # cambiando los rotulos de los ejes
+  theme(panel.grid.major = element_blank(), # quitando las cuadriculas
+        panel.grid.minor = element_blank()) + 
+  theme_classic() + # usando un tema de plot sencillo
+  theme(legend.position = "none",
+        axis.title.x=element_blank()) + # quitando la leyenda y el nombre del eje de las x
+  stat_compare_means() + # añadir test estadístico!!!
+  scale_fill_aaas() # usar esta escala de colores chequea otras opciones en <https://nanx.me/ggsci/articles/ggsci.html> 
+
+plot_df1
+```
+
+# Comparar el promedio de vida de cuatro paises
+```{r}
+gapminder %>% 
+  select(country, lifeExp) %>% 
+  filter(country %in% c("South Africa", "Ireland", "Colombia", "Ecuador")) %>% 
+  group_by(country) %>% 
+  summarise(Promedio_de_vida = mean(lifeExp))
+```
+
+Es esta diferencia estadisticamente significativa?
+
+```{r}
+#Creamos un data frame con los valores de estos dos paises
+df2 <- gapminder %>% 
+  select(country, lifeExp) %>% 
+  filter(country %in% c("South Africa", "Ireland", "Colombia", "Ecuador")) 
+
+#Test parametrico: asumiendo que los datos estan distribuidos normalmente
+aov_objeto <- aov(data = df2, lifeExp ~ country) # calculamos ANOVA
+anova(aov_objeto)
+broom::tidy(aov_objeto)
+
+#tukey test
+model_tukey <- TukeyHSD(aov_objeto)
+broom::tidy(model_tukey)
+
+#Test no parametrico: cuando los datos no siguen una distribucion normal
+kruskal.test(data = df2, lifeExp ~ country) # calculamos Kruskal-Wallis test
+
+
+```
+
+
+
+```{r}
+#library(ggsci) 
+#library(ggpubr)
+mis_comparaciones <- list(c("Ecuador", "South Africa"),c("Colombia", "South Africa"),c("Ireland", "South Africa"),c("Colombia", "Ecuador"),c("Ireland", "Ecuador"),c("Ireland", "Colombia"))
+
+##################### Running box plot #############################
+plot_df2 <- df2 %>% 
+#  mutate(country = fct_relevel(country, "South Africa","Ecuador","Colombia","Ireland")) %>% # Reordenar manualmente o sino usar la funcion fct_reorder :)
+  ggplot(aes(x = fct_reorder(country,lifeExp, .fun = median, .desc =FALSE), y = lifeExp, fill = country)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(color="black", size=0.4, alpha=0.5) +
+  labs(y="Expectativa de vida", x="Pais") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) + 
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x=element_blank()) + 
+  stat_compare_means(comparisons = mis_comparaciones, label.y = c(75,79,82,77,86,84), tip.length=.02, hide.ns = F) +
+  stat_compare_means(label.y =92, label.x = 2) +
+  scale_fill_simpsons()
+
+plot_df2
+```
+
+```{r}
+#library(ggsci) 
+#library(ggpubr)
+mis_comparaciones <- list(c("Ecuador", "South Africa"),c("Colombia", "South Africa"),c("Ireland", "South Africa"),c("Colombia", "Ecuador"),c("Ireland", "Ecuador"),c("Ireland", "Colombia"))
+
+##################### Running box plot #############################
+plot_df2 <- df2 %>% 
+#  mutate(country = fct_relevel(country, "South Africa","Ecuador","Colombia","Ireland")) %>% # Reordenar manualmente o sino usar la funcion fct_reorder :)
+  ggplot(aes(x = fct_reorder(country,lifeExp, .fun = median, .desc =FALSE), y = lifeExp, fill = country)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(color="black", size=0.4, alpha=0.5, width = 0.1) +
+  labs(y="Expectativa de vida", x="Pais") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) + 
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x=element_blank()) + 
+  stat_compare_means(comparisons = mis_comparaciones, label.y = c(75,79,82,77,86,84), symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns")), tip.length=.02, hide.ns = F) +
+  stat_compare_means(label.y =92, label.x = 2) +
+  scale_fill_simpsons()
+
+plot_df2
+```
+
+# Re-escalando valores
+Es posible que quieras cambiar la escala de los datos si las pruebas que desea utilizar suponen datos distribuidos normalmente o si tienes diferentes medidas a lo largo de escalas muy diferentes.
+
+## Transformación logarítmica
+```{r}
+gapminder$log.pop <- log(gapminder$pop, base=10) # Añadir una columna con el logaritmo de la población por país
+
+logpop_hist <- ggplot(gapminder, aes(x=log.pop)) + # Generando un plot de la nueva variable log.pop
+  geom_histogram() + # Añadiendo un histograma
+ # geom_density() + # Añadiendo una curva de densidad
+  theme_bw() # diseño del gráfico sencillo
+logpop_hist
+```
+
+# Transformación a puntajes Z
+```{r}
+View(gapminder)
+
+GDP_reescalado <- scale(gapminder$gdpPercap) # 'scale' disponible en R básico; transforma tus datos en puntajes z
+
+View(GDP_reescalado)
+```
+
+
+#CATEGORICA - CATEGORICA
+
+## chi-square statistical test
+```{r}
+test <- chisq.test(gapminder$country, gapminder$continent, correct=FALSE); test
+test$residuals
+test$expected
+summary(test)
+```
+
+#NUMERICO - NUMERICO
+
+# Correlaciones
+¿Qué pasa si queremos ver cómo interactúan dos variables?
+```{r}
+# por defecto la funcion cor calcula la correlacion de Pearson
+cor(gapminder$lifeExp,gapminder$pop)
+
+#puedes cambiar el metodo estadistico a Spearman si es necesario
+cor(gapminder$lifeExp,gapminder$pop,
+    method="spearman") 
+
+# si tiene datos incompletos, deberá agregar el argumento "use" a cor para especificar a R si correlacionar por pares, usar solo observaciones completas, eliminar NA u otra estipulación.
+```
+
+
+## Usando `psych`
+Usando 'psych' podemos trazar histogramas en diagramas de dispersión.
+
+```{r}
+## correlaciones mas detalladas (necesitas el paquete 'psych')
+corr.test(gapminder$lifeExp,gapminder$pop)
+```
+Opciones para graficar con R básico:
+```{r eval=TRUE, echo=TRUE}
+# usando R basico
+  plot(gapminder$pop, gapminder$lifeExp)
+```
+
+```{r eval=T, echo=T}
+# histogramas en scatterplots
+  scatter.hist(gapminder$lifeExp, gapminder$pop)
+```
+```{r eval=TRUE, echo=TRUE}
+# Disminuir superposición de datos en pop (población)
+gapminder %>%
+    ggplot(aes(x = pop, y = lifeExp)) +
+    geom_point(size = 0.5, alpha = 0.2) + # scatterplot con transparencia, ajustar el tamaño de los puntos
+    geom_smooth(method = "lm") +
+    stat_cor(method = "pearson", label.x.npc = "center", label.y.npc = "top") +
+    theme_bw() # fondo sencillo en blanco y negro, no el gris de siempre
+
+gapminder %>%
+    ggplot(aes(x = pop, y = lifeExp)) +
+    geom_point(size = 0.5, alpha = 0.2) + # scatterplot con transparencia, ajustar el tamaño de los puntos
+    scale_x_log10() + # logaritmo en el eje x
+    geom_smooth(method = "lm") +
+    stat_cor(method = "pearson", label.x.npc = "left", label.y.npc = "top") +
+    theme_bw() # fondo sencillo en blanco y negro, no el gris de siempre
+```
+
+  
+Ten en cuenta el orden de los cambios de las variables para obtener la misma gráfica.
+Podemos ver todas las interacciones a la vez.
+```{r eval=T, echo=T}
+# scatterplot of matrices
+  pairs.panels(gapminder)
+```
+
+## Usando `GGally`
+Es similar a la función anterior, pero tiene en cuenta la naturaleza de la variable: numérica vs categórica.
+
+```{r eval=TRUE, echo=TRUE, message=FALSE}
+# es posible que tenga que instalar GGally por separado y luego volver a cargar la biblioteca
+   # install.packages ("GGally")
+  library(GGally)
+# use ggally for pairs plot
+  gapminder %>%
+    select(-country) %>% # Removing countries from this calculation+plotting since there are too many!
+    ggpairs()
+```
+
+Algunas notas:
+- Asociaciones claras:
+   - Esperanza de vida vs. continente
+   - PIB per cápita frente a continente
+- Asociaciones que no son tan claras:
+   - Esperanza de vida frente a población - ** ¡esto requiere una mayor exploración! **
+
+
+Y, por supuesto, hay muchas formas de personalizar los diagramas de dispersión utilizando el paquete ggplot2.
+
+¡Vea todas las variaciones a continuación en su propio tiempo! 
+
+
+```{r}
+gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=gdpPercap, y=lifeExp)) + 
+  geom_point()
+
+gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=log(gdpPercap), y=lifeExp, col=continent)) + 
+  geom_point()
+
+gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=log(gdpPercap), y=lifeExp, col=continent)) + 
+  geom_point(alpha=0.3)
+
+gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=log(gdpPercap), y=lifeExp, col=continent, size=pop)) + 
+  geom_point(alpha=0.3)
+
+gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=log(gdpPercap), y=lifeExp, col=continent, size=pop)) + 
+  geom_point(alpha=0.3) +
+  geom_smooth()
+
+gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=log(gdpPercap), y=lifeExp, col=continent, size=pop)) + 
+  geom_point(alpha=0.3) +
+  geom_smooth(method = lm)
+
+gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=log(gdpPercap), y=lifeExp, col=continent, size=pop)) + 
+  geom_point(alpha=0.3) +
+  geom_smooth(method = lm) +
+  facet_wrap(~continent)
+
+gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=log(gdpPercap), y=lifeExp, col=year, size=pop)) + 
+  geom_point(alpha=0.3) +
+  geom_smooth(method = lm) +
+  facet_wrap(~continent)
+
+ gapminder %>% 
+  filter(gdpPercap < 50000) %>% 
+  ggplot(aes(x=log(gdpPercap), y=lifeExp, col=year, size=pop)) + 
+  geom_point(alpha=0.3) +
+  geom_smooth(method = lm) +
+  facet_wrap(~continent) +   
+  stat_cor(method = "pearson", label.x.npc = "left", label.y = 85)
+
+```
+
+#Modelos de regresion lineal
+un modelo lineal intenta representar tus datos usando una linea recta. Esa linea tiene una inclinacion (slope) y un intercepto en el eje Y.
+```{r}
+attach(gapminder)
+lm(lifeExp ~ gdpPercap) # la variable de respuesta o dependiente seria expectativa de vida y la variable explicativa seria GDP per capita
+summary(lm(lifeExp ~ gdpPercap)) #un resumen de ese modelo, nos da los residuales, y otros valores importantes, como el valor p que nos indica que es
+
+summary(lm(lifeExp ~ gdpPercap+pop)) #se puede hacer analisis multivariados solo añadiendo variables
+```
